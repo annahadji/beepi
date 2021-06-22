@@ -96,7 +96,7 @@ if __name__ == "__main__":
     save_dir = outputs / str(len([i for i in outputs.glob("*") if i.is_dir()]))
     save_dir.mkdir(parents=True, exist_ok=True)
     #------------------------
-    # Record N segments of 5s
+    # Record n segments of footage for certain duration
     logger.info("About to start recording...")
     record_n_segments(n=3, seconds=5, camera=camera, save_dir=save_dir)
     logger.info("Recording finished.")
