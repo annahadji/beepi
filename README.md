@@ -1,4 +1,4 @@
-# 🎥 🐝 Rasp Pi setup for honeybees
+# 🎥 🐝 BeePi
 
 Personal setup of a Raspberry Pi and NOIR camera for recording honeybees in a dark observation hive. The setup is intended for close up filming of the comb for short durations, implemented using [picamera](https://picamera.readthedocs.io/en/release-1.13/) v1.13. The main purpose of this repo is to version control the camera config across subsequent filming periods.
 
