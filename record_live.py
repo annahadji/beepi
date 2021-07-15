@@ -3,6 +3,7 @@ import argparse
 import ctypes as ct
 import datetime
 import logging
+import math
 import pathlib
 import shutil
 import subprocess
@@ -12,7 +13,7 @@ import picamera
 from picamera import mmal
 import brightpi
 
-logger = logging.getLogger("Pi")
+logger = logging.getLogger("BeePi")
 logging.basicConfig(
     filename="logs.txt",
     filemode="a",
@@ -21,6 +22,8 @@ logging.basicConfig(
     level=logging.INFO,
 )
 
+WRITE_TO_USB_AFTER = 8.0  # Try to write to usb after accumulating this many gb of data
+LEAVE_SPARE_ON_PI = 6.0  # Make sure to leave this many spare gb on filesystem
 BYTES_PER_GB = 1024 * 1024 * 1024
 
 
@@ -80,11 +83,19 @@ def convert_to_greyscale(
             logger.info("Deleted %s.", file.stem)
 
 
+def write_to_usb(data_path: pathlib.Path, usb_path: pathlib.Path) -> None:
+    """Write all .h264 video files in data dir to path on usb, and remove original files."""
+    for video_path in data_path.glob("**/*.h264"):
+        target_path = usb_path / video_path
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(video_path, target_path)
+        video_path.unlink()
+
 def test_setup(args: Dict[str, Any]):
     """Change arguments to test the setup."""
     args["experiment_name"] = "test"
     args["segment_length"] = 3  # seconds
-    args["session_length"] = 6  # seconds
+    args["session_length"] = 7  # seconds
     args["ir"] = True
 
 
@@ -115,7 +126,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--session_length",
         type=int,
-        default=24,
+        default=340,
         help="Desired length of resulting footage (in seconds). \
         i.e. 21600 - 6hrs, 28800 - 8hrs, 43200 - 12hrs, 64800 - 18hrs, 86400 - 24hrs.",
     )
@@ -133,9 +144,7 @@ if __name__ == "__main__":
     # Setup test arguments if debug
     if args["debug"]:
         test_setup(args)
-    assert (
-        args["segment_length"] < args["session_length"]
-    ), "Segment length exceeds total session time."
+    assert (args["segment_length"] < args["session_length"]), "Seg len > session len."
     logger.info("Running with args: %s", str(args))
     # ------------------------
     # Set up lighting conditions
@@ -168,18 +177,20 @@ if __name__ == "__main__":
     # ------------------------
     # Recording loop
     n_segments = 5
-    num_iterations = int(
-        round(args["session_length"] / (n_segments * args["segment_length"]))
+    num_iterations = max(
+        1, int(math.ceil(args["session_length"] / (n_segments * args["segment_length"])))
     )
+    space_on_usb = True
     for recording_iter in range(num_iterations):
-        logger.info("--------\nRecording loop %d / %d.", recording_iter, num_iterations)
+        logger.info("--------")
+        logger.info("Recording loop %d / %d.", recording_iter + 1, num_iterations)
         # ---
         # Set up save dir
         outputs = pathlib.Path("data", args["experiment_name"])
         save_dir = outputs / str(recording_iter)
         save_dir.mkdir(parents=True, exist_ok=True)
         # ---
-        # Record n segments of footage for certain duration before checking storage
+        # Record n segments of footage for certain duration
         logger.info("About to start recording %d segments...", n_segments)
         record_n_segments(
             n=n_segments,
@@ -191,24 +202,36 @@ if __name__ == "__main__":
         # ---
         # Reset lighting conditions
         if args["ir"]:
-            # ---
-            # Reset BrightPi
             brightPi.reset()
             leds_indices_on = brightPi.get_led_on_off(brightpi.LED_IR)
             logger.info("BrightPi reset, IR leds ON: %s", str(leds_indices_on))
         # ---
         # Check available space in filesystem
         space = shutil.disk_usage(outputs)  # Returns total, used and free bytes
-        total, used = float(space.total) / BYTES_PER_GB
+        total = float(space.total) / BYTES_PER_GB
         used = float(space.used) / BYTES_PER_GB
-        logger.info("Used %.2fgb / %.2fgb." % total, used)
-        if used > 10.0:  # i.e. filesystem is over 10gb
-            # Write to extra USB space
-            logger.info("Writing footage so far to connected USB...")
-            pass
-            logger.info("Written to USB and deleted.")
-
-        # Convert videos to greyscale and delete originals to save space
-        # logger.info("Converting to greyscale...")
-        # convert_to_greyscale(save_dir.glob("*"), remove_orig=True)
-        # logger.info("Finished conversions.")
+        logger.info("Filesystem usage %.2fgb / %.2fgb." % (used, total))
+        if used > WRITE_TO_USB_AFTER and space_on_usb:
+            # ---
+            # Check available space in USB
+            usb_path = pathlib.Path("/home/pi/usbstick")
+            usb_space = shutil.disk_usage(usb_path)
+            usb_total = float(usb_space.total) / BYTES_PER_GB
+            usb_used = float(usb_space.used) / BYTES_PER_GB
+            usb_free = float(usb_space.free) / BYTES_PER_GB
+            logger.info("USB usage %.2fgb / %.2fgb." % (usb_used, usb_total))
+            if used > usb_free:
+                space_on_usb = False
+                logger.info("USB storage will be exceeded by next write. Next write cancelled.")
+                break
+            # ---
+            # Write to USB
+            logger.info("Moving .h264 files in %s to %s...", str(outputs), str(usb_path))
+            write_to_usb(outputs, usb_path)
+            used = float(shutil.disk_usage(outputs).used) / BYTES_PER_GB
+            logger.info("Files moved. Filesystem usage now: %.2fgb." % (used))
+        # ---
+        # Break out of loop if space is exceeded
+        if (total - used) < LEAVE_SPARE_ON_PI:
+            logger.info("Terminating program at loop %d due to space constraints.", recording_iter)
+            break
