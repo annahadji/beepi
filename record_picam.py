@@ -103,7 +103,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--session_length",
         type=int,
-        default=340,
+        default=400,
         help="Desired length of resulting footage (in seconds). \
         i.e. 21600 - 6hrs, 28800 - 8hrs, 43200 - 12hrs, 64800 - 18hrs, 86400 - 24hrs.",
     )
