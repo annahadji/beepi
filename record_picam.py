@@ -30,12 +30,15 @@ def record_n_segments(num_segs: int, seconds: int, name_prefix: str) -> None:
     start_rec = pathlib.Path("/home/pi/picam/hooks/start_record")
     stop_rec = pathlib.Path("/home/pi/picam/hooks/stop_record")
     for segment in range(num_segs):
-        filename = f"{name_prefix}-{segment}-{datetime.datetime.now().strftime('%d%m%y-%H%M')}.ts"
+        filename = f"{name_prefix}-{segment}-{datetime.datetime.now().strftime('%d%m%y-%H%M%S')}.ts"
         with start_rec.open("w") as file:
             file.write(f"filename={filename}")
         time.sleep(seconds)
         stop_rec.touch()
-        logger.info("Video saved, %s.", filename)
+        if pathlib.Path("/home/pi/picam/archive", filename).exists():
+            logger.info("Video saved, %s.", filename)
+        else:
+            logger.warning("Error recording video %s.", filename)
         time.sleep(1)
 
 
@@ -62,10 +65,13 @@ def convert_to_mp4(ts_file: pathlib.Path, remove_orig: bool = False) -> None:
         ],
         check=True,
     )
-    logger.info("Converted to mp4 and saved %s.", str(ts_file))
-    if remove_orig:
-        ts_file.unlink()
-        logger.info("Deleted %s.", str(ts_file))
+    if new_path.exists():
+        logger.info("Converted to mp4 and saved %s.", str(ts_file))
+        if remove_orig:
+            ts_file.unlink()
+            logger.info("Deleted %s.", str(ts_file))
+    else:
+        logger.warning("Conversion warning on file %s", str(new_path))
 
 
 def write_to_usb(data_path: pathlib.Path, usbstick_path: pathlib.Path) -> None:
@@ -82,7 +88,7 @@ def test_setup(arguments: Dict[str, Any]):
     arguments["experiment_name"] = "test"
     arguments["segment_length"] = 3  # seconds
     arguments["session_length"] = 7  # seconds
-    arguments["fps"] = 60
+    arguments["fps"] = 90
     arguments["ir"] = True
 
 
@@ -140,11 +146,7 @@ if __name__ == "__main__":
         # Set up and initialise BrightPi
         brightPi = brightpi.BrightPi()
         brightPi.reset()
-        # ---
-        # Turn on IR LEDs
-        brightPi.set_led_on_off(brightpi.LED_IR, brightpi.ON)
-        leds_indices_on = brightPi.get_led_on_off(brightpi.LED_IR)
-        logger.info("BrightPi setup, IR leds ON: %s", str(leds_indices_on))
+        logger.info("Filming with IR. BrightPi setup.")
     # ------------------------
     # Recording loop
     N_SEGMENTS = 5
@@ -156,6 +158,12 @@ if __name__ == "__main__":
     for recording_iter in range(num_iterations):
         logger.info("--------")
         logger.info("Recording loop %d / %d.", recording_iter + 1, num_iterations)
+        # ---
+        # Turn on IR LEDs
+        if args["ir"]:
+            brightPi.set_led_on_off(brightpi.LED_IR, brightpi.ON)
+            leds_indices_on = brightPi.get_led_on_off(brightpi.LED_IR)
+            logger.info("BrightPi IR leds ON: %s", str(leds_indices_on))
         # ---
         # Record n segments of footage for certain duration
         camera_proc = subprocess.Popen(
@@ -172,6 +180,7 @@ if __name__ == "__main__":
                 "--mode",
                 "6",
                 "--hflip",
+                "--vflip",
                 "--wb",
                 "greyworld",
                 "--iso",
@@ -179,12 +188,12 @@ if __name__ == "__main__":
             ],
             cwd="/home/pi/picam",
         )
-        time.sleep(2)  # Camera warmup
+        time.sleep(5)  # Camera warmup
         logger.info("About to start recording %d segments...", N_SEGMENTS)
         record_n_segments(
             num_segs=N_SEGMENTS,
             seconds=args["segment_length"],
-            name_prefix=f"{args['experiment_name']}-{recording_iter}"  # Passed for naming
+            name_prefix=f"{args['experiment_name']}-{recording_iter}",  # Passed for naming
         )
         logger.info("Recording finished.")
         camera_proc.terminate()
