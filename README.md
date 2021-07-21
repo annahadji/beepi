@@ -11,9 +11,20 @@ The setup is intended for close up filming of the comb for short durations and u
 - [BrightPi](https://uk.pi-supply.com/products/bright-pi-bright-white-ir-camera-light-raspberry-pi) - 8 Infra red (940nm) and 4 white light LEDs used to light surface of comb.
 - [PIR Camera Case](https://thepihut.com/products/pir-camera-case-for-raspberry-pi-4-3) - hold components together.
 
-## Example usage
+## Getting started
 
-There are a few different arguments I use when recording audio and video with picam.
+```bash
+# For running picam version from terminal...
+
+# After a reboot
+./mount_usb  # If you have a USB stick for overflow storage space
+./make_dirs  # Create picam directories (from picam docs)
+
+# Run the script (assumes index of microphone is "hw:1,0", can be checked by `arecord -l`)
+python3 record_picam.py --debug
+```
+
+There are a few different arguments I use when recording footage.
 
 ```
 [00:09:10] 🚀 beepi $ python3 record_picam.py --h
@@ -34,15 +45,4 @@ optional arguments:
   --debug               Run a small preconfigured test.
 ```
 
-```bash
-# For running picam version from terminal...
-
-# After a reboot
-./mount_usb  # If you have a USB stick for overflow storage space
-./make_dirs  # Reorganise picam directories (from picam docs)
-
-# Run the script (assumes index of microphone is "hw:1,0", can be checked by `arecord -l`)
-python3 record_picam.py --debug
-```
-
-Some parameters for filming are held constant. These can be seen in [record_picam.py](https://github.com/annahadji/beepi/blob/fdea29f4025c648cdf3a13bbd1b605f4302a230f/record_picam.py#L169) and include: image resolution (640 x 480), ISO (800), camera mode (6), white balance ("greyworld"), and a horizontal and vertical flip of the image.
+Some parameters for filming are held constant. These include the image resolution (640 x 480), ISO (800), camera mode (6), white balance ("greyworld"), and a horizontal and vertical flip of the image.
