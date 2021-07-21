@@ -1,6 +1,8 @@
 # 🎥 🐝 BeePi
 
-Personal setup of a Raspberry Pi and NOIR camera for recording honeybees in a dark observation hive. The setup is intended for close up filming of the comb for short durations, implemented using [picam](https://github.com/iizukanao/picam) to record audio and video. Equivelent functions for recording video only in [picamera](https://picamera.readthedocs.io/en/release-1.13/) v1.13 are in `utils.py`. The main purpose of this repo is to version control the camera config across subsequent filming periods.
+Personal setup of a Raspberry Pi and NOIR camera for recording honeybees in a dark observation hive.
+
+The setup is intended for close up filming of the comb for short durations and uses [picam](https://github.com/iizukanao/picam) to record audio and video. Equivalent functions for recording video only in [picamera](https://picamera.readthedocs.io/en/release-1.13/) v1.13 are in `utils.py`. The main purpose of this repo is to version control the camera config across subsequent filming periods.
 
 ## Physical Components
 
@@ -10,6 +12,8 @@ Personal setup of a Raspberry Pi and NOIR camera for recording honeybees in a da
 - [PIR Camera Case](https://thepihut.com/products/pir-camera-case-for-raspberry-pi-4-3) - hold components together.
 
 ## Example usage
+
+There are a few different arguments I use when recording audio and video with picam.
 
 ```
 [00:09:10] 🚀 beepi $ python3 record_picam.py --h
@@ -30,13 +34,15 @@ optional arguments:
   --debug               Run a small preconfigured test.
 ```
 
-```
-# For running picam version
+```bash
+# For running picam version from terminal...
 
 # After a reboot
 ./mount_usb  # If you have a USB stick for overflow storage space
-./make_dirs  # Initialise
+./make_dirs  # Reorganise picam directories (from picam docs)
 
-# Run the script
+# Run the script (assumes index of microphone is "hw:1,0", can be checked by `arecord -l`)
 python3 record_picam.py --debug
 ```
+
+Some parameters for filming are held constant. These can be seen in [record_picam.py](https://github.com/annahadji/beepi/blob/fdea29f4025c648cdf3a13bbd1b605f4302a230f/record_picam.py#L169) and include: image resolution (640 x 480), ISO (800), camera mode (6), white balance ("greyworld"), and a horizontal and vertical flip of the image.
