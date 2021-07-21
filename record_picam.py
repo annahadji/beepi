@@ -25,12 +25,12 @@ LEAVE_SPARE_ON_PI = 6.0  # Make sure to leave this many spare gb on filesystem
 BYTES_PER_GB = 1024 * 1024 * 1024
 
 
-def record_n_segments(num_segs: int, seconds: int, name_prefix: str) -> None:
+def record_n_segments(num_segs: int, seconds: int, name: str) -> None:
     """Record n segments of footage of a particular duration (in seconds)."""
     start_rec = pathlib.Path("/home/pi/picam/hooks/start_record")
     stop_rec = pathlib.Path("/home/pi/picam/hooks/stop_record")
     for segment in range(num_segs):
-        filename = f"{name_prefix}-{segment}-{datetime.datetime.now().strftime('%d%m%y-%H%M%S')}.ts"
+        filename = f"{datetime.datetime.now().strftime('%y%m%d-%H%M%S')}-sid{segment}-{name}.ts"
         with start_rec.open("w") as file:
             file.write(f"filename={filename}")
         time.sleep(seconds)
@@ -193,7 +193,7 @@ if __name__ == "__main__":
         record_n_segments(
             num_segs=N_SEGMENTS,
             seconds=args["segment_length"],
-            name_prefix=f"{args['experiment_name']}-{recording_iter}",  # Passed for naming
+            name=f"iter{recording_iter}-{args['experiment_name']}",  # Passed for naming
         )
         logger.info("Recording finished.")
         camera_proc.terminate()
