@@ -1,4 +1,4 @@
-"""Small script saving video recordings using Picamera."""
+"""Record segments of video and audio using picam."""
 import argparse
 import datetime
 import logging
@@ -131,7 +131,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--debug",
         action="store_true",
-        help="Run a small test, mostly ignores other arguments.",
+        help="Run a small preconfigured test.",
     )
     args = vars(parser.parse_args())
     # Setup test arguments if debug
