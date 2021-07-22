@@ -13,11 +13,13 @@ The setup is intended for close up filming of the comb for short durations and u
 
 ## Getting started
 
-```bash
-# For running picam version from terminal...
+Install the dependencies by following the installation instructions for [picam](https://github.com/iizukanao/picam) and [BrightPi](https://github.com/PiSupply/Bright-Pi).
 
-# After a reboot
-./mount_usb  # If you have a USB stick for overflow storage space
+```bash
+# For running from terminal...
+
+# After a reboot of the Pi
+./mount_usb  # If there's a USB stick for overflow storage space
 ./make_dirs  # Create picam directories (from picam docs)
 
 # Run the script (assumes index of microphone is "hw:1,0", can be checked by `arecord -l`)
