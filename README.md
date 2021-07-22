@@ -2,7 +2,7 @@
 
 Personal setup of a Raspberry Pi and NOIR camera for recording honeybees in a dark observation hive.
 
-The setup is intended for close up filming of the comb for short durations and uses [picam](https://github.com/iizukanao/picam) to record audio and video. Equivalent functions for recording video only in [picamera](https://picamera.readthedocs.io/en/release-1.13/) v1.13 are in `utils.py`. The main purpose of this repo is to version control the camera config across subsequent filming periods.
+The setup is intended for close up filming of the comb for short durations and uses [picam](https://github.com/iizukanao/picam) v1.4.11 to record audio and video. Equivalent functions for recording video only in [picamera](https://picamera.readthedocs.io/en/release-1.13/) v1.13 are in `utils.py`. The main purpose of this repo is to version control the camera config across subsequent filming periods.
 
 ## Physical Components
 
