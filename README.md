@@ -13,7 +13,7 @@ The setup is intended for close up filming of the comb for short durations and u
 
 ## Getting started
 
-Install the dependencies by following the installation instructions for [picam](https://github.com/iizukanao/picam) and [BrightPi](https://github.com/PiSupply/Bright-Pi).
+Install the dependencies by following the installation instructions for [picam](https://github.com/iizukanao/picam) and [BrightPi](https://github.com/PiSupply/Bright-Pi). To then test a filming setup, clone this repository and run the following:
 
 ```bash
 # For running from terminal...
