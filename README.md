@@ -29,8 +29,10 @@ python3 record_picam.py --debug
 There are a few different arguments I use when recording footage.
 
 ```
-[00:09:10] 🚀 beepi $ python3 record_picam.py --h
-usage: record_picam.py [-h] [--experiment_name EXPERIMENT_NAME] [--fps FPS] [--segment_length SEGMENT_LENGTH] [--session_length SESSION_LENGTH] [--ir] [--debug]
+[00:09:10] 🚀 beepi $ python3 record_picam.py --help
+usage: record_picam.py [-h] [--experiment_name EXPERIMENT_NAME] [--fps FPS] [--width WIDTH] [--height HEIGHT]
+                       [--camera_mode CAMERA_MODE] [--segment_length SEGMENT_LENGTH]
+                       [--session_length SESSION_LENGTH] [--ir] [--debug]
 
 Record segments of video and audio using picam.
 
@@ -39,12 +41,17 @@ optional arguments:
   --experiment_name EXPERIMENT_NAME
                         Name for experimental run.
   --fps FPS             Frames per second to record in.
+  --width WIDTH         Width of video in pixels. Defaults to 640.
+  --height HEIGHT       Height of video in pixels. Defaults to 480.
+  --camera_mode CAMERA_MODE
+                        Raspberry pi camera mode. Defaults to 6 (for high fps).
   --segment_length SEGMENT_LENGTH
                         Length of an individual video segment (in seconds).
   --session_length SESSION_LENGTH
-                        Desired length of resulting footage (in seconds). i.e. 21600 - 6hrs, 28800 - 8hrs, 43200 - 12hrs, 64800 - 18hrs, 86400 - 24hrs.
+                        Desired length of resulting footage (in seconds). i.e. 21600 - 6hrs, 28800 - 8hrs, 43200 -
+                        12hrs, 64800 - 18hrs, 86400 - 24hrs.
   --ir                  Use infrared lighting when recording.
   --debug               Run a small preconfigured test.
 ```
 
-Some parameters for filming are held constant. These include the image resolution (640 x 480), ISO (800), camera mode (6), white balance ("greyworld"), and a horizontal and vertical flip of the image.
+Some parameters for filming are held constant. These include the ISO (800), white balance ("greyworld"), and a horizontal and vertical flip of the image.
