@@ -74,9 +74,12 @@ def convert_to_mp4(ts_file: pathlib.Path, remove_orig: bool = False) -> None:
         logger.warning("Conversion warning on file %s", str(new_path))
 
 
-def write_to_usb(data_path: pathlib.Path, usbstick_path: pathlib.Path) -> None:
-    """Write all .mp4 video files in data dir to path on usb, and remove original files."""
-    for video_path in data_path.glob("*.mp4"):
+def write_to_usb(
+    data_path: pathlib.Path, usbstick_path: pathlib.Path, ext: str
+) -> None:
+    """Write all .ext video files in data dir to path on usb, and remove original files.
+    Extension for picam should be mp4, and h264 for picamera."""
+    for video_path in data_path.glob(f"*.{ext}"):
         target_path = usbstick_path / "data" / video_path.name
         target_path.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(video_path, target_path)
@@ -109,6 +112,24 @@ if __name__ == "__main__":
         type=int,
         default=60,
         help="Frames per second to record in.",
+    )
+    parser.add_argument(
+        "--width",
+        type=int,
+        default=640,
+        help="Width of video in pixels. Defaults to 640.",
+    )
+    parser.add_argument(
+        "--height",
+        type=int,
+        default=480,
+        help="Height of video in pixels. Defaults to 480.",
+    )
+    parser.add_argument(
+        "--camera_mode",
+        type=int,
+        default=6,
+        help="Raspberry pi camera mode. Defaults to 6 (for high fps).",
     )
     parser.add_argument(
         "--segment_length",
@@ -172,13 +193,13 @@ if __name__ == "__main__":
                 "--alsadev",
                 "hw:1,0",
                 "--width",
-                "640",
+                f"{args['width']}",
                 "--height",
-                "480",
+                f"{args['height']}",
                 "--fps",
                 f"{args['fps']}",
                 "--mode",
-                "6",
+                f"{args['camera_mode']}",
                 "--hflip",
                 "--vflip",
                 "--wb",
@@ -239,7 +260,7 @@ if __name__ == "__main__":
                 str(ts_files_save_archive_path),
                 str(usb_path),
             )
-            write_to_usb(ts_files_save_archive_path, usb_path)
+            write_to_usb(ts_files_save_archive_path, usb_path, "mp4")
             used = (
                 float(shutil.disk_usage(ts_files_save_archive_path).used) / BYTES_PER_GB
             )

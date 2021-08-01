@@ -65,15 +65,6 @@ def convert_to_greyscale(video_dir: pathlib.Path, remove_orig: bool = False) -> 
             logger.info("Deleted %s.", file.stem)
 
 
-def write_to_usb(data_path: pathlib.Path, usbstick_path: pathlib.Path) -> None:
-    """Write all .h264 video files in data dir to path on usb, and remove original files."""
-    for video_path in data_path.glob("*.h264"):
-        target_path = usbstick_path / "data" / video_path
-        target_path.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(video_path, target_path)
-        video_path.unlink()
-
-
 # if __name__ == "__main__":
 
 # # ------------------------
