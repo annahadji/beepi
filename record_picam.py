@@ -30,7 +30,8 @@ def record_n_segments(num_segs: int, seconds: int, name: str) -> None:
     start_rec = pathlib.Path("/home/pi/picam/hooks/start_record")
     stop_rec = pathlib.Path("/home/pi/picam/hooks/stop_record")
     for segment in range(num_segs):
-        filename = f"{datetime.datetime.now().strftime('%y%m%d-%H%M%S')}-sid{segment}-{name}.ts"
+        timestamp = datetime.datetime.now().strftime("%y%m%d-%H%M%S")
+        filename = f"{timestamp}-sid{segment}-{name}.ts"
         with start_rec.open("w") as file:
             file.write(f"filename={filename}")
         time.sleep(seconds)
@@ -211,10 +212,11 @@ if __name__ == "__main__":
         )
         time.sleep(5)  # Camera warmup
         logger.info("About to start recording %d segments...", N_SEGMENTS)
+        run_details = f"{args['fps']}fps-{args['width']}x{args['height']}"
         record_n_segments(
             num_segs=N_SEGMENTS,
             seconds=args["segment_length"],
-            name=f"iter{recording_iter}-{args['experiment_name']}",  # Passed for naming
+            name=f"iter{recording_iter}-{args['experiment_name']}-{run_details}",  # Passed for naming
         )
         logger.info("Recording finished.")
         camera_proc.terminate()
