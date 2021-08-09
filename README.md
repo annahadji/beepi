@@ -64,7 +64,7 @@ optional arguments:
 
 Some parameters for filming are held constant. These include the ISO (800), white balance ("greyworld"), and a horizontal and vertical flip of the image.
 
-# Example commands
+## Example commands
 
 ```
 # Record video and audio, 90 fps, low resolution (picam)
