@@ -1,5 +1,8 @@
-"""Record segments of video and audio using picam."""
+"""Record segments of video and audio using picam or picamera. Picam can provide audio
+from a connected USB microphone; picamera can be used for higher resolution files
+(e.g. 1640 x 922 and upwards)."""
 import argparse
+import ctypes
 import datetime
 import logging
 import math
@@ -9,6 +12,11 @@ import subprocess
 import time
 from typing import Dict, Any
 
+# Import RaspPi picamera library (alternative 'picam' is setup locally already)
+import picamera
+from picamera import mmal
+
+# Control infra red lights
 import brightpi
 
 logger = logging.getLogger("BeePi")
@@ -25,8 +33,19 @@ LEAVE_SPARE_ON_PI = 6.0  # Make sure to leave this many spare gb on filesystem
 BYTES_PER_GB = 1024 * 1024 * 1024
 
 
-def record_n_segments(num_segs: int, seconds: int, name: str) -> None:
-    """Record n segments of footage of a particular duration (in seconds)."""
+class PiCameraGs(picamera.PiCamera):
+    """Greyworld is not yet an option for picamera, as it is in raspvid.
+    It helps fix incorrect colours induced by the removal of the IR filter."""
+
+    AWB_MODES = {
+        "auto": mmal.MMAL_PARAM_AWBMODE_AUTO,
+        "greyworld": ctypes.c_uint32(10),
+    }
+
+
+def record_n_segments_picam(num_segs: int, seconds: int, name: str) -> None:
+    """Record n segments of footage of a particular duration (in seconds) using picam.
+    Saves video files with .ts extension."""
     start_rec = pathlib.Path("/home/pi/picam/hooks/start_record")
     stop_rec = pathlib.Path("/home/pi/picam/hooks/stop_record")
     for segment in range(num_segs):
@@ -39,47 +58,76 @@ def record_n_segments(num_segs: int, seconds: int, name: str) -> None:
         if pathlib.Path("/home/pi/picam/archive", filename).exists():
             logger.info("Video saved, %s.", filename)
         else:
-            logger.warning("Error recording video %s.", filename)
+            logger.warning("Error recording video, %s.", filename)
         time.sleep(1)
 
 
-def convert_to_mp4(ts_file: pathlib.Path, remove_orig: bool = False) -> None:
-    """Convert videos in a directory to mp4. Converted videos will be saved
-    and original videos can optionally be removed.
+def record_n_segments_picamera(
+    num_segs: int,
+    seconds: int,
+    name: str,
+    camera: picamera.PiCamera,
+    save_dir: pathlib.Path,
+) -> None:
+    """Record n segments of footage of a particular duration (in seconds) using picamera.
+    Saves video files with .h264 extension."""
+    for filename in camera.record_sequence(
+        "%s.h264"
+        % (
+            save_dir
+            / f"{datetime.datetime.now().strftime('%y%m%d-%H%M%S')}-sid{segment}-{name}"
+        )
+        for segment in range(0, num_segs)
+    ):
+        camera.wait_recording(seconds)
+        if pathlib.Path(filename).exists():
+            logger.info("Video saved, %s.", filename)
+        else:
+            logger.warning("Error recording video, %s.", filename)
+
+
+def convert_to_mp4(
+    video_file: pathlib.Path, fps: int = None, remove_orig: bool = False
+) -> None:
+    """Convert video to mp4. Converted videos will be saved and original videos can
+    optionally be removed. Frame rate will be inferred if not specified.
 
     Exceptions raised:
         CalledProcessError: raised if ffmpeg doesnt successfully convert a file.
     """
-    new_path = ts_file.parent / (ts_file.stem + ".mp4")
-    subprocess.run(
-        [
-            "ffmpeg",
-            "-i",
-            ts_file,
-            "-c:v",
-            "copy",
-            "-c:a",
-            "copy",
-            "-bsf:a",
-            "aac_adtstoasc",
-            str(new_path),
-        ],
-        check=True,
-    )
+    new_path = video_file.parent / (video_file.stem + ".mp4")
+    subprocess_args_list = [
+        "ffmpeg",
+        "-i",
+        video_file,
+        "-c:v",
+        "copy",
+        "-c:a",
+        "copy",
+        "-bsf:a",
+        "aac_adtstoasc",
+        str(new_path),
+    ]
+    if fps is not None:
+        # Force specific frame rate (i.e. for converting .h264)
+        subprocess_args_list.insert(1, "-framerate")
+        subprocess_args_list.insert(2, f"{fps}")
+    # Run conversion
+    subprocess.run(subprocess_args_list, check=True)
     if new_path.exists():
-        logger.info("Converted to mp4 and saved %s.", str(ts_file))
+        logger.info("Converted to mp4 and saved %s.", str(video_file))
         if remove_orig:
-            ts_file.unlink()
-            logger.info("Deleted %s.", str(ts_file))
+            video_file.unlink()
+            logger.info("Deleted %s.", str(video_file))
     else:
-        logger.warning("Conversion warning on file %s", str(new_path))
+        logger.warning("Conversion warning on file %s.", str(new_path))
 
 
 def write_to_usb(
     data_path: pathlib.Path, usbstick_path: pathlib.Path, ext: str
 ) -> None:
     """Write all .ext video files in data dir to path on usb, and remove original files.
-    Extension for picam should be mp4, and h264 for picamera."""
+    Extension for picam should be mp4, and h264 for picamera unless converted beforehand."""
     for video_path in data_path.glob(f"*.{ext}"):
         target_path = usbstick_path / "data" / video_path.name
         target_path.parent.mkdir(parents=True, exist_ok=True)
@@ -92,8 +140,7 @@ def test_setup(arguments: Dict[str, Any]):
     arguments["experiment_name"] = "test"
     arguments["segment_length"] = 3  # seconds
     arguments["session_length"] = 7  # seconds
-    arguments["fps"] = 90
-    arguments["ir"] = True
+    # Will also depend on what N_SEGMENTS is
 
 
 if __name__ == "__main__":
@@ -130,7 +177,8 @@ if __name__ == "__main__":
         "--camera_mode",
         type=int,
         default=6,
-        help="Raspberry pi camera mode. Defaults to 6 (for high fps).",
+        help="Raspberry pi camera mode. Defaults to 6 (for high fps using picam). \
+        Warning: picam modes seem to be shifted by one relative to picamera modes.",
     )
     parser.add_argument(
         "--segment_length",
@@ -155,7 +203,13 @@ if __name__ == "__main__":
         action="store_true",
         help="Run a small preconfigured test.",
     )
+    parser.add_argument(
+        "--use_picamera",
+        action="store_true",
+        help="Use picamera instead of picam for experiment.",
+    )
     args = vars(parser.parse_args())
+    # ---
     # Setup test arguments if debug
     if args["debug"]:
         test_setup(args)
@@ -188,46 +242,78 @@ if __name__ == "__main__":
             logger.info("BrightPi IR leds ON: %s", str(leds_indices_on))
         # ---
         # Record n segments of footage for certain duration
-        camera_proc = subprocess.Popen(
-            [
-                "./picam",
-                "--alsadev",
-                "hw:1,0",
-                "--width",
-                f"{args['width']}",
-                "--height",
-                f"{args['height']}",
-                "--fps",
-                f"{args['fps']}",
-                "--mode",
-                f"{args['camera_mode']}",
-                "--hflip",
-                "--vflip",
-                "--wb",
-                "greyworld",
-                "--iso",
-                "800",
-            ],
-            cwd="/home/pi/picam",
-        )
-        time.sleep(5)  # Camera warmup
-        logger.info("About to start recording %d segments...", N_SEGMENTS)
-        run_details = f"{args['fps']}fps-{args['width']}x{args['height']}"
-        record_n_segments(
-            num_segs=N_SEGMENTS,
-            seconds=args["segment_length"],
-            name=f"iter{recording_iter}-{args['experiment_name']}-{run_details}",  # Passed for naming
-        )
-        logger.info("Recording finished.")
-        camera_proc.terminate()
-        time.sleep(2)
-        # ---
-        # Convert from .ts to .mp4
-        ts_files_save_archive_path = pathlib.Path("/home/pi/picam/archive")
-        ts_files_save_rec_path = pathlib.Path("/home/pi/picam/rec")
-        for ts_filename in ts_files_save_archive_path.glob("*.ts"):
-            convert_to_mp4(ts_filename, remove_orig=True)
-            (ts_files_save_rec_path / ts_filename.name).unlink()
+        if args["use_picamera"]:
+            # ---
+            # Use picamera
+            camera = PiCameraGs(
+                resolution=(args["width"], args["height"]), framerate=args["fps"]
+            )
+            camera.vflip = True
+            camera.hflip = True
+            camera.ISO = 800
+            camera.awb_mode = "greyworld"
+            camera.mode = args["camera_mode"]
+            time.sleep(5)  # Camera warmup
+            logger.info("About to start recording %d segments...", N_SEGMENTS)
+            run_details = f"{args['fps']}fps-{args['width']}x{args['height']}"
+            local_video_files_path = pathlib.Path("/home/pi/picamera_data")
+            local_video_files_path.mkdir(parents=True, exist_ok=True)
+            record_n_segments_picamera(
+                num_segs=N_SEGMENTS,
+                seconds=args["segment_length"],
+                name=f"iter{recording_iter}-{args['experiment_name']}-{run_details}",  # Passed for naming
+                camera=camera,
+                save_dir=local_video_files_path,
+            )
+            time.sleep(2)
+            # ---
+            # Convert from .h264 to .mp4
+            for h264_filename in local_video_files_path.glob(f"*.h264"):
+                convert_to_mp4(h264_filename, fps=args["fps"], remove_orig=True)
+        else:
+            # ---
+            # Use picam
+            camera_proc = subprocess.Popen(
+                [
+                    "./picam",
+                    "--alsadev",
+                    "hw:1,0",
+                    "--width",
+                    f"{args['width']}",
+                    "--height",
+                    f"{args['height']}",
+                    "--fps",
+                    f"{args['fps']}",
+                    "--mode",
+                    f"{args['camera_mode']}",
+                    "--hflip",
+                    "--vflip",
+                    "--wb",
+                    "greyworld",
+                    "--iso",
+                    "800",
+                ],
+                cwd="/home/pi/picam",
+            )
+            time.sleep(5)  # Camera warmup
+            logger.info("About to start recording %d segments...", N_SEGMENTS)
+            run_details = f"{args['fps']}fps-{args['width']}x{args['height']}"
+            record_n_segments_picam(
+                num_segs=N_SEGMENTS,
+                seconds=args["segment_length"],
+                name=f"iter{recording_iter}-{args['experiment_name']}-{run_details}",  # Passed for naming
+            )
+            logger.info("Recording finished.")
+            camera_proc.terminate()
+            time.sleep(2)
+            # ---
+            # Convert from .ts to .mp4
+            ts_files_save_archive_path = pathlib.Path("/home/pi/picam/archive")
+            ts_files_save_rec_path = pathlib.Path("/home/pi/picam/rec")
+            for ts_filename in ts_files_save_archive_path.glob("*.ts"):
+                convert_to_mp4(ts_filename, remove_orig=True)
+                (ts_files_save_rec_path / ts_filename.name).unlink()
+            local_video_files_path = ts_files_save_archive_path
         # ---
         # Reset lighting conditions
         if args["ir"]:
@@ -237,7 +323,7 @@ if __name__ == "__main__":
         # ---
         # Check available space in filesystem
         space = shutil.disk_usage(
-            ts_files_save_archive_path
+            local_video_files_path
         )  # Returns total, used and free bytes
         total = float(space.total) / BYTES_PER_GB
         used = float(space.used) / BYTES_PER_GB
@@ -259,13 +345,11 @@ if __name__ == "__main__":
             # Write to USB
             logger.info(
                 "Moving .mp4 files in %s to %s...",
-                str(ts_files_save_archive_path),
+                str(local_video_files_path),
                 str(usb_path),
             )
-            write_to_usb(ts_files_save_archive_path, usb_path, "mp4")
-            used = (
-                float(shutil.disk_usage(ts_files_save_archive_path).used) / BYTES_PER_GB
-            )
+            write_to_usb(local_video_files_path, usb_path, "mp4")
+            used = float(shutil.disk_usage(local_video_files_path).used) / BYTES_PER_GB
             logger.info("Files moved. Filesystem usage now: %dgb.", round(used))
         # ---
         # Break out of loop if space is exceeded
